@@ -1,37 +1,22 @@
-import time
-from playwright.sync_api import sync_playwright
-from azure.storage.blob import BlobServiceClient
+print("Crawler gestartet")
 import os
+from azure.storage.blob import BlobServiceClient
 
-# Konfiguration
-URL = "https://www.example.com"
-AZURE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-CONTAINER_NAME = "itlandcontainer2"
-BLOB_NAME = "webcrawler-output.txt"
-
-print("Crawler startet...")
+connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+print("Verbindung zur Azure Blob Storage wird getestet...")
 
 try:
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page()
-        page.goto(URL)
-        content = page.content()
-        print("Seite geladen:", URL)
+    blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+    print("✅ Verbindung erfolgreich!")
 
-        # Blob-Client initialisieren
-        blob_service = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
-        blob_client = blob_service.get_blob_client(container=CONTAINER_NAME, blob=BLOB_NAME)
+    container_name = "itlandcontainer2"
+    container_client = blob_service_client.get_container_client(container_name)
 
-        # Hochladen in Azure Blob
-        blob_client.upload_blob(content, overwrite=True)
-        print("Inhalt erfolgreich in Azure Blob gespeichert.")
-        browser.close()
+    blob_name = "test.txt"
+    blob_data = "Crawler erfolgreich gestartet."
+
+    container_client.upload_blob(name=blob_name, data=blob_data, overwrite=True)
+    print(f"✅ Datei '{blob_name}' erfolgreich hochgeladen.")
 
 except Exception as e:
-    print("Fehler beim Crawling oder Speichern:", str(e))
-
-# Für Log-Tests sichtbar lassen
-print("Warte 60 Sekunden...")
-time.sleep(60)
-print("Crawler beendet.")
+    print(f"❌ Fehler: {e}")
