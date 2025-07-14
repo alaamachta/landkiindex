@@ -1,7 +1,7 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 from azure.storage.blob import BlobServiceClient
 import json
 
@@ -11,8 +11,9 @@ EXCLUDE_URLS = ["/impressum/", "/datenschutz/"]
 CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 CONTAINER_NAME = "itlandcontainer2"
 BLOB_NAME = "index-itlandnet.json"
+LOCAL_FILE = "index-itlandnet.json"
 
-# URL-Sammlung
+# Alle Links auf der Website sammeln (außer ausgeschlossene)
 def get_all_links(base_url):
     visited = set()
     to_visit = [base_url]
@@ -39,7 +40,7 @@ def get_all_links(base_url):
 
     return urls
 
-# Inhalte sammeln
+# Nur sichtbaren Text extrahieren
 def extract_text_from_url(url):
     try:
         response = requests.get(url, timeout=10)
@@ -49,7 +50,7 @@ def extract_text_from_url(url):
         print(f"⚠️ Fehler beim Extrahieren von {url}: {e}")
         return ""
 
-# Hauptfunktion
+# Hauptfunktion: Crawlen, JSON speichern, in Azure hochladen
 def main():
     all_urls = get_all_links(BASE_URL)
     data = []
@@ -63,14 +64,20 @@ def main():
                 "content": text_only
             })
 
+    blob_json = json.dumps(data, ensure_ascii=False, indent=2)
+
+    # Lokal speichern
+    with open(LOCAL_FILE, "w", encoding="utf-8") as f:
+        f.write(blob_json)
+
+    print(f"💾 Lokal gespeichert als {LOCAL_FILE}")
+
+    # In Azure hochladen
     blob_service_client = BlobServiceClient.from_connection_string(CONNECTION_STRING)
     container_client = blob_service_client.get_container_client(CONTAINER_NAME)
-
-    # Als JSON speichern und hochladen
-    blob_json = json.dumps(data, ensure_ascii=False, indent=2)
     container_client.upload_blob(name=BLOB_NAME, data=blob_json, overwrite=True)
 
-    print(f"✅ {len(data)} Seiten gecrawlt und in {BLOB_NAME} gespeichert.")
+    print(f"✅ {len(data)} Seiten gecrawlt und in Azure als {BLOB_NAME} gespeichert.")
 
 if __name__ == "__main__":
     main()
